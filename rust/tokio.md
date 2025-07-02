@@ -30,7 +30,13 @@ Having one thread per task is expensive bc context switch is kernel space. In ex
 
 ### Blocking
 
-TO BE CONTINUED: https://youtu.be/o2ob8zkeq2s?t=1753
+Trouble: when the future calls something that blocks the current worker OS thread, so it couldn't execute other futures. Don't pass future to tokio that runs long time without `await` points. 
+
+Impirically, chuck >100ms should be run with `spawn_blocking` / use `block_inplace` 
+
+`spawn_blocking` takes a closure, spawns it into the blocking thread pool of tokio runtime, returns a handle. Tokio can reuse the blocking threads for other closures. 
+
+CONTINUE: https://youtu.be/o2ob8zkeq2s?t=2142
 
 ## Resources
 
