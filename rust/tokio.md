@@ -34,9 +34,31 @@ Trouble: when the future calls something that blocks the current worker OS threa
 
 Impirically, chuck >100ms should be run with `spawn_blocking` / use `block_inplace` 
 
-`spawn_blocking` takes a closure, spawns it into the blocking thread pool of tokio runtime, returns a handle. Tokio can reuse the blocking threads for other closures. 
+`spawn_blocking` takes a closure, spawns it into the blocking thread pool of tokio runtime (starts a new blocking thread / reuse existing), returns a handle. Tokio can reuse the blocking threads for other closures. The handle a future that can be waited on. 
 
-CONTINUE: https://youtu.be/o2ob8zkeq2s?t=2142
+`block_in_place` can accept closure that is not `Send`. It is called on a tokio worker thread, that thread saves its state to be inherited by a new tokio worker thread, and the current thread becomes non-worker thread that can sync execute the closure without moving it. The benefit of doing this is the now non-worker thread would not block other futures.
+
+Async has more book-keeping, but gets the benefit of using green threads. Works well if large number of tasks / either of the concurrent events.
+
+### Shutdown
+
+When all futures end, runtime yields back to the caller of `block_on`. Most times the caller awaits on the returned handle. 
+
+`shutdown_background` will drop tasks when they yield after get called `poll` upon, whether `READY` or `PENDIND`.
+
+If the program returns, the threads are killed and the futures never called `drop` for cleanup.
+
+### Send Bound & LocalSet
+
+To run futures that are not `Send`. `LocalSet` type is a set of tasks that are guaranteed to be run on the same thread, not sent between threads. `LocalSet::spawn_local` creates future for them. It could only be used as top-level task (on runtime's `block_on`, `run_until`, etc.) or start a new thread and send it via channel.
+
+### Tokio Mutex
+
+`lock` method of tokio mutex returns future. `std::Mutex` is more efficient. Reason why tokio mutex is necessary is: Waiting on the mutex blocks the worker thread, also await while holding the lock could take long time. `std::Mutex`''s mutex guard is also not `Send`, which makes the future that contains that not `Send`. 
+
+tokio mutex is aware when a task calls `mutex.lock().await` if the lock is held by other task, in this case the requiring task is put to sleep and the worker thread picks up other tasks. (it yields when cannot acquire lock).
+
+TBC: https://youtu.be/o2ob8zkeq2s?t=3419
 
 ## Resources
 
