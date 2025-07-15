@@ -58,9 +58,31 @@ To run futures that are not `Send`. `LocalSet` type is a set of tasks that are g
 
 tokio mutex is aware when a task calls `mutex.lock().await` if the lock is held by other task, in this case the requiring task is put to sleep and the worker thread picks up other tasks. (it yields when cannot acquire lock).
 
-TBC: https://youtu.be/o2ob8zkeq2s?t=3419
+tokio mutex guard is `Send`, tokio keep the info that a future holds a mutex. When other future try holding this lock, it is put to sleep.
+
+Green thread is similar to a task described here.
+
+[Tokio console](https://github.com/tokio-rs/console) visualizes tasks statistics on time spent busy / scheduling / idle, number of time polled, info on task blocking runtime, etc. 
+
+Stealing across multi-core CPU NUMA node's NUMA boundaries could be expensive.
 
 ## Resources
+
+Tokio provide resources for I/O for tasks to interact with real world.
+
+`AsyncRead` trait defines things that could be read from in async, e.g. TPC stream, fds, etc. These resources are always found at the bottom of future stack. Tokio provide these interfaces to return a `Poll<Result()>`. 
+
+A `AsyncRead` returns `PENDING` when the underlying resource is not ready, and only wakes up when the underlying resource makes progress. This is achieved with the `cx: &mut Context` (that is also found in `Future` trait) that is passed all-the-way from the top of the future stack to the bottom when called `await`. `Context` has a `Waker` whose `wake` method is called when the future is allowed to make progress again.
+
+Who calls `wake`? The runtime has a I/O event loop service that stores the `Waker` of a `AsyncRead` along with its file descriptor inside it. When the an event of a resource happens it calls `wake` method of the corresponding `Waker` to trigger moving the corresponding top-level task (that shares the same `Context`) to scheduler's the runnable queue. i.e. `Future::poll` is only called after `Future::cx::Waker::wake` is called.
+
+`Waker` is created on-the-fly when the top-level task's `poll` is called. It is cheap to create, just a V-table (virtual dispatch table, list of function ptrs). It stores a ptr to the task, a function pointer to the rust code when `wake` is called. 
+
+`Waker` a struct, not a trait because `Waker` is `Clone`, which is not object-safe, because it names the `Self` type, then `Box<dyn Waker>` or `Box<Arc<dyn Waker>>` cannot work. 
+
+Difference between tokio's `AsyncRead` and `std::io::Read` is that AsyncRead takes `Pin<&mut self>` which is needed for future to have local stack variable. `std::io::Read` does not have `Pin`. Also `AsyncRead` returns `Poll` which is `enum` of `Ready` and `Pending`, while `std::io::Read` does not have a clear way to represent "there are more works to do, but not ready yet".
+
+TBC: https://youtu.be/o2ob8zkeq2s?t=4929
 
 ## Utils
 
