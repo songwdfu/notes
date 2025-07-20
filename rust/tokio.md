@@ -60,7 +60,7 @@ tokio mutex is aware when a task calls `mutex.lock().await` if the lock is held 
 
 tokio mutex guard is `Send`, tokio keep the info that a future holds a mutex. When other future try holding this lock, it is put to sleep.
 
-Green thread is similar to a task described here.
+Green thread is similar to a task described here. `Spawn`ing a task is similar to spawning a green thread.
 
 [Tokio console](https://github.com/tokio-rs/console) visualizes tasks statistics on time spent busy / scheduling / idle, number of time polled, info on task blocking runtime, etc. 
 
@@ -82,8 +82,35 @@ Who calls `wake`? The runtime has a I/O event loop service that stores the `Wake
 
 Difference between tokio's `AsyncRead` and `std::io::Read` is that AsyncRead takes `Pin<&mut self>` which is needed for future to have local stack variable. `std::io::Read` does not have `Pin`. Also `AsyncRead` returns `Poll` which is `enum` of `Ready` and `Pending`, while `std::io::Read` does not have a clear way to represent "there are more works to do, but not ready yet".
 
-TBC: https://youtu.be/o2ob8zkeq2s?t=4929
+The scheduler chooses from the runnable task queues, the event loop calls wake and moves futures from non-runnable to runnable.
+
+With <future> IO uring, the `AsyncRead` and `AsyncWrite` traits are not there, details in `tokio_uring` crate. It will replace part of the IO event loop.
+
+`AsyncReadExt` and `AsyncWriteExt` for extention, it provides extra util interfaces such as r/w a fixed bytes, etc. It provides the actual `Future` for `AsyncRead` and `AsyncWrite`, who just provides a method that returns `Poll`.
+
+### Tokio FS
+
+Some OS does not provide async file interfaces. Tokio has a dedicated blocking thread that does the actual FS, the handle waits for it to provide the async interface. This makes tokio FS slower than std FS.
+
+One can use `spawn_blocking` with a closure to interact with the FS and just provide the result as async. 
+
+### Tokio process
+
+When handle to tokio `Child` process, the process is NOT terminated, so is std `Child`. `Child` is not `Future`, but it has a `wait` function to wait on it.
+
+### Tokio IO
+Reading from a TCP stream requires a `mut` reference. When shared, it is better not wrap into a `Arc<Mutex<TCPStream>>`, but spawn a thread owning the TCPStream doing r/w, and use a `tokio::sync::mpsc::channel` to commmunicate with other threads.
+
+### Sink and Stream
+
+In the `tokio_stream` crate, `futures::stream::Stream` is similar to an iterator / channel. `futures::sink::Sink` is similar to channel send, which lets you put one element at a time.
+
+Codec / Framing is conversion from element to bytes. A util to be used is `tokio_util::codec`.
+
+TBC: https://youtu.be/o2ob8zkeq2s?t=6773 
+
 
 ## Utils
 
 ## Complications
+
