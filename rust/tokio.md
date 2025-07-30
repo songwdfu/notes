@@ -107,10 +107,35 @@ In the `tokio_stream` crate, `futures::stream::Stream` is similar to an iterator
 
 Codec / Framing is conversion from element to bytes. A util to be used is `tokio_util::codec`.
 
-TBC: https://youtu.be/o2ob8zkeq2s?t=6773 
-
-
 ## Utils
+
+### tokio::sync
+
+`mpsc` channel, multi-producer-single-consumer. 
+
+`oneshot` channel, can only send and receive once. Can only `await` but not `next` bc it does not impl `Stream`. Provides `blocking_receive` and `send` that are blocking. This bridges async and sync world. Sending request and a `oneshot` receiver together is common.
+
+`broadcast` channel, multiple consumer, every receiver receives every value.
+
+`watch` channel, broadcast only the last sent value. useful for slow reader / only latest update matters
+
+`Notify` a condition variable that is not associated with a mutex. Wrap it into a `Arc` and when notified the future that awaits on `Notify::notified()` is waken up. Is convenient to impl `Waker` in self-defined resources without touching `Poll` interface. 
+```rust
+let notify = Arc::new(Notify::new());
+let notify_clone = notify.copy();
+let handle = tokio::spawn(async move {
+    notify2.notified().await;
+    println!("continue execution");
+})
+notify.notify_one();
+```
+`Notify` can also bridge sync and async world, since `notify_one` is sync, some sync resources can call it and unblock a future that called `notified.await`
+
+`Semaphore` similar to c/c++ semaphore. Interfaces are `acquire` that returns a `Result<SemaphorePermit, _>` that is dropped when released.
+
+### JoinSet
+
+TBC: https://youtu.be/o2ob8zkeq2s?t=7881 
 
 ## Complications
 
