@@ -74,12 +74,12 @@ then cloned is type &T, is a clone of ref to T, because <&T> does not impl
 clone, compiler tries autoref <&&T>, which is Clone, so it calls `fn clone(&&T)
 -> T`.
 
-Be careful when calling clone() on a reference &T, make sure T impl Clone to get
-a value T, otherwise will get a &T to the same obj. `#[derive(Clone)]` only
+Be careful when calling clone() on a reference &T, make sure T impl Clone to
+get a value T, otherwise will get a &T to the same obj. `#[derive(Clone)]` only
 works for inner T: Clone. When working with things like `Arc<T>`, better impl
 Clone manually `impl<T> Clone for Container<T> { fn clone(&self) -> Self {
-Self(Arc::clone(&self.0)) } }` and we'll always get a new `Container<T>` instead
-of ref.
+Self(Arc::clone(&self.0)) } }` and we'll always get a new `Container<T>`
+instead of ref.
 
 ## Casting
 
@@ -198,7 +198,9 @@ shorter lifetime, otherwise inner could die earlier than the wrapper. Anything
 that’s owned would have move semantic and the lifetime of the owned obj is tied
 to the variable, so it’s similar to how everything is covariant over ‘a. 
 
-Fn(T)->U is contravariant over T and covariant over U. The former because a func that requires any ‘a to do the job satisfies a requirement for a function that is given a ‘static to do the job. 
+Fn(T)->U is contravariant over T and covariant over U. The former because a
+func that requires any ‘a to do the job satisfies a requirement for a function
+that is given a ‘static to do the job. 
 
 ## Drop check
 
