@@ -104,18 +104,38 @@ prevents compiler reordering and is only useful to prevent a thread racing with
 itself when using signal handlers.
 
 `std::sync::atomic::fence` establish happens-before relationship without
-mentioning mem location. It syncs with other thread having atomic ops or
-`fence`. The prereq of fence syncing with fence / atomic on another threadis
-that there exists an syncing atomic load-store in between the (two) fences. 
+mentioning mem location given there's another atomic op. It also syncs with
+other thread having atomic ops or `fence`. The prereq of fence syncing with
+fence / atomic on another threadis that there exists an syncing atomic
+load-store in between the (two) fences. 
 
-e.g.
+The three cases of fence sync:
+
 ```
 fence(release) // A
-store
-        load
+x.store(relaxed)
+        x.load(relaxed)
         fence(acquire) // B
 ```
-prevents all r/w before A to be reordered after any r/w after B.
+then the two fences syncs, preventing all non-atomic r/w before A to be
+reordered after any non-atomic r/w after B.
+
+similarly, 
+```
+fence(release) // A
+x.store(relaxed)
+        x.load(acquire)
+```
+then mfence syncs with the load op if the load read the value stored.
+
+or, 
+```
+x.store(release)
+        x.load(relaxed)
+fence(acquire) // B
+```
+then mfence syncs with the load op if the load read the value stored.
+
 
 Syncing btw mfences might be useful when storing and loading lots of atomics,
 where all load and stores can just be `Relaxed` and only add fences to be
@@ -123,9 +143,9 @@ where all load and stores can just be `Relaxed` and only add fences to be
 
 The difference btw fence and load-store is: While an atomic store-release
 operation prevents all preceding reads and writes from moving past the
-store-release, an atomic_thread_fence with std::memory_order_release ordering
-prevents all preceding reads and writes from moving past all subsequent stores.
-This is useful when on a single thread:
+store-release, an `atomic_thread_fence` with `std::memory_order_release`
+ordering prevents all preceding reads and writes from moving past all subsequent
+stores. This is useful when on a single thread:
 
 e.g. In this snippet, write B can be reordered before write A
 ```
