@@ -16,6 +16,8 @@ multiple places.
 
 ## `UnsafeCell`
 
+In `Cell` we need to modify the inner value while only having a shared
+reference to self. Mutating it with shared ref requires `UnsafeCell`. This is
 Core to iterior mutability. Holds a type and can get raw exclusive ref anyhow.
 Deref the *T gives a T, should be wrapped in `unsafe{}` 
 
